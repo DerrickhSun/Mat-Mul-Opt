@@ -312,6 +312,36 @@ static PyMappingMethods Matrix61c_mapping = {
  */
 static PyObject *Matrix61c_add(Matrix61c* self, PyObject* args) {
     /* TODO: YOUR CODE HERE */
+    if(PyObject_TypeCheck(self, &Matrix61cType)==0 || PyObject_TypeCheck(args, &Matrix61cType)==0){
+        PyErr_SetString(PyExc_TypeError, "Adding non-matrices");
+        return NULL;
+    }
+    Matrix61c* argu = (Matrix61c *)args;
+    int a = self->mat->cols - argu->mat->cols;
+    int b = self->mat->rows - argu->mat->rows;
+    if(a!=0 || b!=0) {
+        PyErr_SetString(PyExc_ValueError, "Adding matrices of different shape");
+        return NULL;
+    } else if (self->mat->cols <= 0 || self->mat->rows <= 0) {
+        PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
+        return NULL;
+    }
+    Matrix61c* temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+    
+    matrix *new_mat;
+    int ref_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
+    if (ref_failed) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate slice");
+        return NULL;
+    }
+    temp->mat = new_mat;
+    temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
+    int functionfailed = add_matrix(temp->mat, self->mat, argu->mat);
+    if (functionfailed) {
+        PyErr_SetString(PyExc_RuntimeError, "Add function failed");
+        return NULL;
+    }
+    return (PyObject*)temp;
 }
 
 /*
@@ -320,6 +350,39 @@ static PyObject *Matrix61c_add(Matrix61c* self, PyObject* args) {
  */
 static PyObject *Matrix61c_sub(Matrix61c* self, PyObject* args) {
     /* TODO: YOUR CODE HERE */
+    int a = PyObject_TypeCheck(self, &Matrix61cType);
+    int b = PyObject_TypeCheck(args, &Matrix61cType);
+    if(a==0 || b==0) {
+        PyErr_SetString(PyExc_TypeError, "Subtracting non-matrices");
+        return NULL;
+    }
+    Matrix61c* argu = (Matrix61c *)args;
+    a = self->mat->cols - argu->mat->cols;
+    b = self->mat->rows - argu->mat->rows;
+    if(a!=0 || b!=0) {
+        PyErr_SetString(PyExc_ValueError, "Subtracting matrices of different shape");
+        return NULL;
+    } else if (self->mat->cols <= 0 || self->mat->rows <= 0) {
+        PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
+        return NULL;
+    }
+    
+    Matrix61c* temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+
+    matrix *new_mat;
+    int ref_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
+    if (ref_failed != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate matrix");
+        return NULL;
+    }
+    temp->mat = new_mat;
+    temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
+    int functionfailed = sub_matrix(temp->mat, self->mat, argu->mat);
+    if (functionfailed) {
+        PyErr_SetString(PyExc_RuntimeError, "Subtraction function failed");
+        return NULL;
+    }
+    return (PyObject*)temp;
 }
 
 /*
@@ -328,6 +391,36 @@ static PyObject *Matrix61c_sub(Matrix61c* self, PyObject* args) {
  */
 static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
     /* TODO: YOUR CODE HERE */
+    if(!PyObject_TypeCheck(self, &Matrix61cType) || !PyObject_TypeCheck(args, &Matrix61cType)) {
+        PyErr_SetString(PyExc_TypeError, "Multiplying non-matrices");
+        return NULL;
+    }
+    Matrix61c* argu = (Matrix61c *)args;
+
+    if(self->mat->cols != argu->mat->rows) {
+        PyErr_SetString(PyExc_ValueError, "Multiplying matrices of invalid shape");
+        return NULL;
+    } else if (self->mat->rows <= 0 || argu->mat->rows <= 0 || argu->mat->cols <= 0) {
+        PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
+        return NULL;
+    }
+
+    Matrix61c* temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+
+    matrix *new_mat;
+    int ref_failed = allocate_matrix(&new_mat, self->mat->rows, argu->mat->cols);
+    if (ref_failed != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate slice");
+        return NULL;
+    }
+    temp->mat = new_mat;
+    temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(argu->mat->cols));
+    int functionfailed = mul_matrix(temp->mat, self->mat, argu->mat);
+    if (functionfailed) {
+        PyErr_SetString(PyExc_RuntimeError, "Mul function failed");
+        return NULL;
+    }
+    return (PyObject*)temp;
 }
 
 /*
@@ -335,6 +428,33 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
  */
 static PyObject *Matrix61c_neg(Matrix61c* self) {
     /* TODO: YOUR CODE HERE */
+    if(!PyObject_TypeCheck(self, &Matrix61cType)) {
+        PyErr_SetString(PyExc_TypeError, "Negating non-matrices");
+        return NULL;
+    }
+
+    if (self->mat->cols <= 0 || self->mat->rows <= 0) {
+        PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
+        return NULL;
+    }
+    Matrix61c* temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+
+    matrix *new_mat;
+    int ref_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
+    if (ref_failed != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate matrix");
+        return NULL;
+    }
+    temp->mat = new_mat;
+    temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
+    
+    //executing neg
+    int functionfailed = neg_matrix(temp->mat, self->mat);
+    if (functionfailed) {
+        PyErr_SetString(PyExc_RuntimeError, "Neg function failed");
+        return NULL;
+    }
+    return (PyObject*)temp;
 }
 
 /*
@@ -342,6 +462,34 @@ static PyObject *Matrix61c_neg(Matrix61c* self) {
  */
 static PyObject *Matrix61c_abs(Matrix61c *self) {
     /* TODO: YOUR CODE HERE */
+    if(!PyObject_TypeCheck(self, &Matrix61cType)) {
+        PyErr_SetString(PyExc_TypeError, "Taking the abs of non-matrices");
+        return NULL;
+    }
+
+    if (self->mat->cols <= 0 || self->mat->rows <= 0) {
+        PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
+        return NULL;
+    }
+
+    Matrix61c* temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+    matrix *new_mat;
+    int ref_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
+    if (ref_failed != 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate matrix");
+        return NULL;
+    }
+    temp->mat = new_mat;
+    temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
+    
+    //executing abs
+    int functionfailed = abs_matrix(temp->mat, self->mat);
+    if (functionfailed) {
+        PyErr_SetString(PyExc_RuntimeError, "Abs function failed");
+        return NULL;
+    }
+    return (PyObject*)temp;
+    
 }
 
 /*
@@ -349,6 +497,38 @@ static PyObject *Matrix61c_abs(Matrix61c *self) {
  */
 static PyObject *Matrix61c_pow(Matrix61c *self, PyObject *pow, PyObject *optional) {
     /* TODO: YOUR CODE HERE */
+    if(!PyObject_TypeCheck(self, &Matrix61cType)){
+        PyErr_SetString(PyExc_TypeError, "Taking the power of non-matrices");
+        return NULL;
+    }
+    if (!PyLong_Check(pow)) {
+        PyErr_SetString(PyExc_TypeError, "Power must be an int/long");
+    }
+    if(self->mat->rows != self->mat->cols) {
+        PyErr_SetString(PyExc_ValueError, "Raising non-square matrices to a power");
+        return NULL;
+    } else if (self->mat->cols <= 0 || self->mat->rows <= 0 || PyLong_AsLong(pow) < 0) {
+        PyErr_SetString(PyExc_ValueError, "Negative dimensions and/or powers not accepted");
+        return NULL;
+    }
+
+    Matrix61c* temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+
+    matrix *new_mat;
+    int ref_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
+    if (ref_failed) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate matrix");
+        return NULL;
+    }
+    temp->mat = new_mat;
+    temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
+    
+    int functionfailed = pow_matrix(temp->mat, self->mat, PyLong_AsLong(pow));
+    if (functionfailed){
+        PyErr_SetString(PyExc_RuntimeError, "Pow function failed");
+        return NULL;
+    }
+    return (PyObject*)temp;
 }
 
 /*
@@ -357,6 +537,12 @@ static PyObject *Matrix61c_pow(Matrix61c *self, PyObject *pow, PyObject *optiona
  */
 static PyNumberMethods Matrix61c_as_number = {
     /* TODO: YOUR CODE HERE */
+    .nb_add = (binaryfunc)Matrix61c_add,
+    .nb_subtract = (binaryfunc)Matrix61c_sub,
+    .nb_multiply = (binaryfunc)Matrix61c_multiply,
+    .nb_power = (ternaryfunc)Matrix61c_pow,
+    .nb_negative = (unaryfunc)Matrix61c_neg,
+    .nb_absolute = (unaryfunc)Matrix61c_abs,
 };
 
 
@@ -367,6 +553,33 @@ static PyNumberMethods Matrix61c_as_number = {
  */
 static PyObject *Matrix61c_set_value(Matrix61c *self, PyObject* args) {
     /* TODO: YOUR CODE HERE */
+    PyObject *arg1 = NULL;
+    PyObject *arg2 = NULL;
+    PyObject *arg3 = NULL;
+    if (PyArg_UnpackTuple(args, "args", 3, 3, &arg1, &arg2, &arg3) && PyLong_Check(arg1) && PyLong_Check(arg2) && (PyFloat_Check(arg3) || PyLong_Check(arg3))) {
+        //umpack args into row, col, and val
+        int row = PyLong_AsLong(arg1);
+        int col = PyLong_AsLong(arg2);
+        double val;
+        if (PyFloat_Check(arg3)){
+            val = PyFloat_AsDouble(arg3);
+        } else {
+            val = PyLong_AsDouble(arg3);
+        }
+        //checking bounds
+        if (self->mat->rows < row || self->mat->cols < col || row < 0 || col < 0) {
+            PyErr_SetString(PyExc_IndexError, "Get index out of bounds");
+            return NULL;
+        }
+        //perform set
+        set(self->mat, row, col, val);
+        return Py_BuildValue("");
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Get requires two integer arguments");
+        return NULL;
+    }
+    PyErr_SetString(PyExc_TypeError, "Strange Error");
+    return NULL;
 }
 
 /*
@@ -376,6 +589,25 @@ static PyObject *Matrix61c_set_value(Matrix61c *self, PyObject* args) {
  */
 static PyObject *Matrix61c_get_value(Matrix61c *self, PyObject* args) {
     /* TODO: YOUR CODE HERE */
+    
+    PyObject *arg1 = NULL;
+    PyObject *arg2 = NULL;
+    double result = -1.0;
+    if (PyArg_UnpackTuple(args, "args", 2, 2, &arg1, &arg2) && PyLong_Check(arg1) && PyLong_Check(arg2)) {
+        int row = PyLong_AsLong(arg1);
+        int col = PyLong_AsLong(arg2);
+        if (self->mat->rows < row || self->mat->cols < col || row < 0 || col < 0) {
+            PyErr_SetString(PyExc_IndexError, "Get index out of bounds");
+            return NULL;
+        }
+        result = get(self->mat, row, col);
+        return PyFloat_FromDouble(result);
+    } else {
+        PyErr_SetString(PyExc_TypeError, "Get requires two integer arguments");
+        return NULL;
+    }
+    PyErr_SetString(PyExc_TypeError, "Strange Error");
+    return PyFloat_FromDouble(-1.0);
 }
 
 /*
@@ -386,6 +618,8 @@ static PyObject *Matrix61c_get_value(Matrix61c *self, PyObject* args) {
  */
 static PyMethodDef Matrix61c_methods[] = {
     /* TODO: YOUR CODE HERE */
+    {"get", (PyCFunction)Matrix61c_get_value, METH_VARARGS, "Getter"},
+    {"set", (PyCFunction)Matrix61c_set_value, METH_VARARGS, "Setter"},
     {NULL, NULL, 0, NULL}
 };
 

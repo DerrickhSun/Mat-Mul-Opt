@@ -84,6 +84,8 @@ def compute(dp_mat_lst: List[Union[dp.Matrix, int]],
         dp_end = time.time()
     # Check for correctness
     is_correct = cmp_dp_nc_matrix(nc_result, dp_result)
+    if (nc_end - nc_start) == 0:
+        return is_correct, (dp_end - dp_start) / 0.00000001
     return is_correct, (dp_end - dp_start) / (nc_end - nc_start)
 
 """

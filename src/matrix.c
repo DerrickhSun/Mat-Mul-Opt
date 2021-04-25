@@ -55,6 +55,26 @@ void rand_matrix(matrix *result, unsigned int seed, double low, double high) {
  */
 int allocate_matrix(matrix **mat, int rows, int cols) {
     /* TODO: YOUR CODE HERE */
+    if (rows < 1 || cols < 1) {
+        PyErr_SetString(PyExc_RuntimeError, "Invalid matrix dimensions");
+        return -1;
+    }
+    *mat = malloc(sizeof(matrix));
+    if (!(*mat)) {
+        PyErr_SetString(PyExc_RuntimeError, "Matrix structure allocation failed");
+        return -1;
+    }
+    (*mat)->rows = rows;
+    (*mat)->cols = cols;
+    (*mat)->data = calloc(rows * cols, sizeof(double));
+    if (!((*mat)->data)) {
+        PyErr_SetString(PyExc_RuntimeError, "Data allocation failed");
+        free(mat);
+        return -1;
+    }
+    (*mat)->ref_cnt = 1;
+    (*mat)->parent = NULL;
+    return 0;
 }
 
 /*
@@ -68,6 +88,26 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
  */
 int allocate_matrix_ref(matrix **mat, matrix *from, int offset, int rows, int cols) {
     /* TODO: YOUR CODE HERE */
+    if (rows < 1 || cols < 1) {
+        PyErr_SetString(PyExc_RuntimeError, "Invalid matrix dimensions");
+        return -1;
+    }
+    *mat = malloc(sizeof(matrix));
+    if (!(*mat)) {
+        PyErr_SetString(PyExc_RuntimeError, "Matrix structure allocation failed");
+        return -1;
+    }
+    (*mat)->rows = rows;
+    (*mat)->cols = cols;
+    (*mat)->data = from -> data + offset;
+    if (!((*mat)->data)) {
+        PyErr_SetString(PyExc_RuntimeError, "Data pointer failed");
+        return -1;
+    }
+    from->ref_cnt += 1;
+    (*mat)->ref_cnt = 1;
+    (*mat)->parent = from;
+    return 0;
 }
 
 /*
@@ -77,6 +117,22 @@ int allocate_matrix_ref(matrix **mat, matrix *from, int offset, int rows, int co
  */
 void deallocate_matrix(matrix *mat) {
     /* TODO: YOUR CODE HERE */
+    if (mat) {
+        mat->ref_cnt -= 1;
+        if (mat->ref_cnt <= 0) {
+            //has no children
+            if(!mat->parent) {
+                free(mat->data);
+            } else {
+                mat->parent->ref_cnt -= 1;
+                if (mat->parent->ref_cnt <= 0) {
+                    //if parent is dead and has no children, deallocate them
+                    deallocate_matrix(mat->parent);
+                }
+            }
+            free(mat);
+        } //if there are children, nothing else happens
+    }
 }
 
 /*
@@ -85,6 +141,7 @@ void deallocate_matrix(matrix *mat) {
  */
 double get(matrix *mat, int row, int col) {
     /* TODO: YOUR CODE HERE */
+    return mat->data[row * mat->cols + col];
 }
 
 /*
@@ -93,6 +150,7 @@ double get(matrix *mat, int row, int col) {
  */
 void set(matrix *mat, int row, int col, double val) {
     /* TODO: YOUR CODE HERE */
+    mat->data[row * mat->cols + col] = val;
 }
 
 /*
@@ -100,6 +158,10 @@ void set(matrix *mat, int row, int col, double val) {
  */
 void fill_matrix(matrix *mat, double val) {
     /* TODO: YOUR CODE HERE */
+    #pragma omp parallel for
+    for (int i = 0; i < mat->rows * mat->cols; i++) {
+        mat->data[i] = val;
+    }
 }
 
 /*
@@ -108,6 +170,20 @@ void fill_matrix(matrix *mat, double val) {
  */
 int add_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     /* TODO: YOUR CODE HERE */
+    if (mat1->rows == mat2->rows && result->rows == mat1->rows && mat1->cols == mat2->cols && mat2->cols == result->cols) {
+        #pragma omp parallel for
+        for (int i = 0; i < (mat1->rows * mat1->cols)/4 * 4; i+=4) {
+            result->data[i] = mat1->data[i] + mat2->data[i];
+            result->data[i+1] = mat1->data[i+1] + mat2->data[i+1];
+            result->data[i+2] = mat1->data[i+2] + mat2->data[i+2];
+            result->data[i+3] = mat1->data[i+3] + mat2->data[i+3];
+        }
+        for (int i = (mat1->rows * mat1->cols)/4 * 4; i < mat1->rows * mat1->cols; i++) {
+            result->data[i] = mat1->data[i] + mat2->data[i];
+        }
+        return 0;
+    }
+    return -1;
 }
 
 /*
@@ -116,6 +192,13 @@ int add_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  */
 int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     /* TODO: YOUR CODE HERE */
+    if (mat1->rows == mat2->rows && result->rows == mat1->rows && mat1->cols == mat2->cols && mat2->cols == result->cols) {
+        for (int i = 0; i < mat1->rows * mat1->cols; i++) {
+            result->data[i] = mat1->data[i] - mat2->data[i];
+        }
+        return 0;
+    }
+    return -1;
 }
 
 /*
@@ -125,6 +208,18 @@ int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  */
 int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     /* TODO: YOUR CODE HERE */
+    int mat1row, mat2col, i;
+    if (mat1->cols != mat2->rows || result->rows != mat1->rows || result -> cols != mat2->cols)
+        return -1;
+    fill_matrix(result, 0.0);
+    
+    for (mat1row = 0; mat1row < mat1->rows; mat1row++) {
+        for (mat2col = 0; mat2col < mat2->cols; mat2col++) {
+            for (i = 0; i < mat2->rows; i++)
+                set(result, mat1row, mat2col, get(result, mat1row, mat2col) + get(mat1, mat1row, i)*get(mat2,i,mat2col));
+        }
+    }
+    return 0;
 }
 
 /*
@@ -134,6 +229,40 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  */
 int pow_matrix(matrix *result, matrix *mat, int pow) {
     /* TODO: YOUR CODE HERE */
+    matrix *temp = NULL;
+    allocate_matrix(&temp, result->rows, mat->cols);
+
+    if (pow == 0) {
+        for (int i = 0; i < mat->rows * mat->cols; i++) {
+            if (i % (mat->cols + 1) == 0) {
+                result->data[i] = 0;
+            } else {
+                result->data[i] = 1;
+            }
+        }
+        deallocate_matrix(temp);
+        return 0;
+    }
+    else if (pow == 1) {
+        for (int i = 0; i < mat->rows * mat->cols; i++) {
+            result->data[i] = mat->data[i];
+        }
+        deallocate_matrix(temp);
+        return 0;
+    }
+    else if (pow % 2 == 0) {
+        int a = pow_matrix(temp, mat, pow/2);
+        mul_matrix(result, temp, temp);
+        deallocate_matrix(temp);
+        return a;
+    }
+    else {
+        int a = pow_matrix(temp, mat, pow - 1);
+        mul_matrix(result, temp, mat);
+        deallocate_matrix(temp);
+        return a;
+    }
+    return -1;
 }
 
 /*
@@ -142,6 +271,10 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
  */
 int neg_matrix(matrix *result, matrix *mat) {
     /* TODO: YOUR CODE HERE */
+    for (int i = 0; i < mat->rows * mat->cols; i++) {
+        result->data[i] = mat->data[i]*-1;
+    }
+    return 0;
 }
 
 /*
@@ -150,5 +283,11 @@ int neg_matrix(matrix *result, matrix *mat) {
  */
 int abs_matrix(matrix *result, matrix *mat) {
     /* TODO: YOUR CODE HERE */
+    int size = mat->rows * mat->cols;
+    #pragma omp parallel for
+    for (int i = 0; i < size; i++) {
+        result->data[i] = fabs(mat->data[i]);
+    }
+    return 0;
 }
 

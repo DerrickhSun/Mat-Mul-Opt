@@ -11,57 +11,226 @@ advise you to modify them and add new tests.
 class TestAdd(TestCase):
     def test_small_add(self):
         # TODO: YOUR CODE HERE
-        dp_mat1, nc_mat1 = rand_dp_nc_matrix(2, 2, seed=0)
-        dp_mat2, nc_mat2 = rand_dp_nc_matrix(2, 2, seed=1)
-        is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "add")
-        self.assertTrue(is_correct)
-        print_speedup(speed_up)
+        totaltime = 0
+        for i in range(1000):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix(i%9 + 1, i%9 + 1, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix(i%9 + 1, i%9 + 1, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "add")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        for i in range(1000):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix(i%9 + 1, i%10 + 1, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix(i%9 + 1, i%10 + 1, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "add")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        
+        totaltime = totaltime/2000
+        print_speedup(totaltime)
+        try:
+            nc.Matrix(3, 3) + nc.Matrix(2, 2)
+            self.assertTrue(False)
+        except ValueError as e:
+            print(e)
+        try:
+            3 + nc.Matrix(2, 2)
+            self.assertTrue(False)
+        except TypeError as e:
+            print(e)
 
     def test_medium_add(self):
         # TODO: YOUR CODE HERE
-        pass
+        totaltime = 0
+        for i in range(100):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix((i%12 + 1) * 100, (i%12 + 1) * 100, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix((i%12 + 1) * 100, (i%12 + 1) * 100, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "add")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        for i in range(100):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix((i%11 + 1) * 100, (i%12 + 1) * 100, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix((i%11 + 1) * 100, (i%12 + 1) * 100, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "add")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        
+        totaltime = totaltime/200
+        print_speedup(totaltime)
+        try:
+            nc.Matrix(300, 300) + nc.Matrix(200, 200)
+            self.assertTrue(False)
+        except ValueError as e:
+            print(e)
+        try:
+            3 + nc.Matrix(200, 200)
+            self.assertTrue(False)
+        except TypeError as e:
+            print(e)
 
     def test_large_add(self):
         # TODO: YOUR CODE HERE
-        pass
+        totaltime = 0
+        for i in range(10):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix((i%12 + 1) * 1000, (i%12 + 1) * 1000, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix((i%12 + 1) * 1000, (i%12 + 1) * 1000, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "add")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        for i in range(10):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix((i%11 + 1) * 1000, (i%12 + 1) * 1000, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix((i%11 + 1) * 1000, (i%12 + 1) * 1000, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "add")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        
+        totaltime = totaltime/20
+        print_speedup(totaltime)
+        try:
+            nc.Matrix(3000, 3000) + nc.Matrix(2000, 2000)
+            self.assertTrue(False)
+        except ValueError as e:
+            print(e)
+        try:
+            3 + nc.Matrix(2000, 2000)
+            self.assertTrue(False)
+        except TypeError as e:
+            print(e)
+            pass
 
 class TestSub(TestCase):
     def test_small_sub(self):
         # TODO: YOUR CODE HERE
-        dp_mat1, nc_mat1 = rand_dp_nc_matrix(2, 2, seed=0)
-        dp_mat2, nc_mat2 = rand_dp_nc_matrix(2, 2, seed=1)
-        is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "sub")
-        self.assertTrue(is_correct)
+        totaltime = 0
+        for i in range(1000):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix(i%9 + 1, i%9 + 1, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix(i%9 + 1, i%9 + 1, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "sub")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        for i in range(1000):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix(i%9 + 1, i%10 + 1, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix(i%9 + 1, i%10 + 1, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "sub")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        
+        totaltime = totaltime/2000
+        print_speedup(totaltime)
         try:
             nc.Matrix(3, 3) - nc.Matrix(2, 2)
             self.assertTrue(False)
         except ValueError as e:
             print(e)
+        try:
+            3 - nc.Matrix(2, 2)
+            self.assertTrue(False)
+        except TypeError as e:
+            print(e)
             pass
-        print_speedup(speed_up)
 
     def test_medium_sub(self):
         # TODO: YOUR CODE HERE
-        pass
+        totaltime = 0
+        for i in range(100):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix((i%12 + 1) * 100, (i%12 + 1) * 100, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix((i%12 + 1) * 100, (i%12 + 1) * 100, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "sub")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        for i in range(100):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix((i%11 + 1) * 100, (i%12 + 1) * 100, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix((i%11 + 1) * 100, (i%12 + 1) * 100, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "sub")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        
+        totaltime = totaltime/200
+        print_speedup(totaltime)
+        try:
+            nc.Matrix(300, 300) - nc.Matrix(200, 200)
+            self.assertTrue(False)
+        except ValueError as e:
+            print(e)
+        try:
+            3 - nc.Matrix(200, 200)
+            self.assertTrue(False)
+        except TypeError as e:
+            print(e)
+            pass
 
     def test_large_sub(self):
         # TODO: YOUR CODE HERE
-        pass
+        totaltime = 0
+        for i in range(10):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix((i%12 + 1) * 1000, (i%12 + 1) * 1000, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix((i%12 + 1) * 1000, (i%12 + 1) * 1000, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "add")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        for i in range(10):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix((i%11 + 1) * 1000, (i%12 + 1) * 1000, seed=i)
+            dp_mat2, nc_mat2 = rand_dp_nc_matrix((i%11 + 1) * 1000, (i%12 + 1) * 1000, seed=i+1)
+            is_correct, speed_up = compute([dp_mat1, dp_mat2], [nc_mat1, nc_mat2], "add")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        
+        totaltime = totaltime/20
+        print_speedup(totaltime)
+        try:
+            nc.Matrix(3000, 3000) - nc.Matrix(2000, 2000)
+            self.assertTrue(False)
+        except ValueError as e:
+            print(e)
+        try:
+            3 - nc.Matrix(2000, 2000)
+            self.assertTrue(False)
+        except TypeError as e:
+            print(e)
+            pass
 
 class TestAbs(TestCase):
     def test_small_abs(self):
         # TODO: YOUR CODE HERE
-        dp_mat, nc_mat = rand_dp_nc_matrix(2, 2, seed=0)
-        is_correct, speed_up = compute([dp_mat], [nc_mat], "abs")
-        self.assertTrue(is_correct)
-        print_speedup(speed_up)
+        totaltime = 0
+        for i in range(1000):
+            dp_mat, nc_mat = rand_dp_nc_matrix(i%9 + 1, i%9 + 1, seed=i)
+            is_correct, speed_up = compute([dp_mat], [nc_mat], "abs")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        for i in range(1000):
+            dp_mat, nc_mat = rand_dp_nc_matrix(i%9 + 1, i%10 + 1, seed=i)
+            is_correct, speed_up = compute([dp_mat], [nc_mat], "abs")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        
+        totaltime = totaltime/2000
+        print_speedup(totaltime)
+        pass
 
     def test_medium_abs(self):
         # TODO: YOUR CODE HERE
+        totaltime = 0
+        for i in range(100):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix((i%12 + 1) * 100, (i%12 + 1) * 100, seed=i)
+            is_correct, speed_up = compute([dp_mat1], [nc_mat1], "abs")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        for i in range(100):
+            dp_mat1, nc_mat1 = rand_dp_nc_matrix((i%11 + 1) * 100, (i%12 + 1) * 100, seed=i)
+            is_correct, speed_up = compute([dp_mat1], [nc_mat1], "abs")
+            self.assertTrue(is_correct)
+            totaltime += speed_up
+        
+        totaltime = totaltime/200
+        print_speedup(totaltime)
         pass
 
     def test_large_abs(self):
         # TODO: YOUR CODE HERE
+        dp_mat, nc_mat = rand_dp_nc_matrix(2, 2, seed=2)
+        is_correct, speed_up = compute([dp_mat], [nc_mat], "abs")
+        self.assertTrue(is_correct)
+        print_speedup(speed_up)
         pass
 
 class TestNeg(TestCase):
