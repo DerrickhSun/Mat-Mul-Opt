@@ -523,11 +523,7 @@ static PyObject *Matrix61c_pow(Matrix61c *self, PyObject *pow, PyObject *optiona
     temp->mat = new_mat;
     temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
     
-    int functionfailed = pow_matrix(temp->mat, self->mat, PyLong_AsLong(pow));
-    if (functionfailed){
-        PyErr_SetString(PyExc_RuntimeError, "Pow function failed");
-        return NULL;
-    }
+    pow_matrix(temp->mat, self->mat, PyLong_AsLong(pow));
     return (PyObject*)temp;
 }
 

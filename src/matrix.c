@@ -172,12 +172,14 @@ int add_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     /* TODO: YOUR CODE HERE */
     if (mat1->rows == mat2->rows && result->rows == mat1->rows && mat1->cols == mat2->cols && mat2->cols == result->cols) {
         #pragma omp parallel for
-        for (int i = 0; i < (mat1->rows * mat1->cols)/4 * 4; i+=4) {
-            result->data[i] = mat1->data[i] + mat2->data[i];
-            result->data[i+1] = mat1->data[i+1] + mat2->data[i+1];
-            result->data[i+2] = mat1->data[i+2] + mat2->data[i+2];
-            result->data[i+3] = mat1->data[i+3] + mat2->data[i+3];
-        }
+        for(unsigned int i = 0; i < (mat1->rows * mat1->cols)/4 * 4; i += 4) {
+			__m256d vector1 = _mm256_loadu_pd(&(mat1->data[i]));
+			__m256d vector2 = _mm256_loadu_pd(&(mat2->data[i]));
+
+			__m256d tempVector = _mm256_add_pd(vector1, vector2);
+			_mm256_storeu_pd(&(result->data[i]), tempVector);
+		}
+
         for (int i = (mat1->rows * mat1->cols)/4 * 4; i < mat1->rows * mat1->cols; i++) {
             result->data[i] = mat1->data[i] + mat2->data[i];
         }
@@ -193,6 +195,7 @@ int add_matrix(matrix *result, matrix *mat1, matrix *mat2) {
 int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     /* TODO: YOUR CODE HERE */
     if (mat1->rows == mat2->rows && result->rows == mat1->rows && mat1->cols == mat2->cols && mat2->cols == result->cols) {
+        #pragma omp parallel for
         for (int i = 0; i < mat1->rows * mat1->cols; i++) {
             result->data[i] = mat1->data[i] - mat2->data[i];
         }
@@ -213,12 +216,17 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         return -1;
     fill_matrix(result, 0.0);
     
+    
     for (mat1row = 0; mat1row < mat1->rows; mat1row++) {
         for (mat2col = 0; mat2col < mat2->cols; mat2col++) {
             for (i = 0; i < mat2->rows; i++)
-                set(result, mat1row, mat2col, get(result, mat1row, mat2col) + get(mat1, mat1row, i)*get(mat2,i,mat2col));
+                result->data[mat1row * result->cols + mat2col] = result->data[mat1row * result->cols + mat2col] + mat1->data[mat1row * mat1->cols + i]*mat2->data[i * mat2->cols + mat2col];
         }
     }
+    /*#pragma omp parallel for
+    for (int index = 0; index < mat1->rows * mat1->cols * mat2->cols; index++) {
+        result->data[((index / mat2->cols) / mat1->cols) * result->cols + (index % mat2->cols)] += mat1->data[index / mat2->cols] * mat2->data[((index / mat2->cols) % mat1->cols) * mat2->cols + (index % mat2->cols)];
+    }*/
     return 0;
 }
 
@@ -229,40 +237,40 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  */
 int pow_matrix(matrix *result, matrix *mat, int pow) {
     /* TODO: YOUR CODE HERE */
-    matrix *temp = NULL;
-    allocate_matrix(&temp, result->rows, mat->cols);
-
     if (pow == 0) {
+        #pragma omp parallel for
         for (int i = 0; i < mat->rows * mat->cols; i++) {
             if (i % (mat->cols + 1) == 0) {
-                result->data[i] = 0;
-            } else {
                 result->data[i] = 1;
+            } else {
+                result->data[i] = 0;
             }
         }
-        deallocate_matrix(temp);
         return 0;
     }
     else if (pow == 1) {
+        #pragma omp parallel for
         for (int i = 0; i < mat->rows * mat->cols; i++) {
             result->data[i] = mat->data[i];
         }
-        deallocate_matrix(temp);
         return 0;
     }
     else if (pow % 2 == 0) {
+        matrix *temp = NULL;
+        allocate_matrix(&temp, result->rows, mat->cols);
         int a = pow_matrix(temp, mat, pow/2);
         mul_matrix(result, temp, temp);
         deallocate_matrix(temp);
         return a;
     }
     else {
+        matrix *temp = NULL;
+        allocate_matrix(&temp, result->rows, mat->cols);
         int a = pow_matrix(temp, mat, pow - 1);
         mul_matrix(result, temp, mat);
         deallocate_matrix(temp);
         return a;
     }
-    return -1;
 }
 
 /*
@@ -271,6 +279,7 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
  */
 int neg_matrix(matrix *result, matrix *mat) {
     /* TODO: YOUR CODE HERE */
+    #pragma omp parallel for
     for (int i = 0; i < mat->rows * mat->cols; i++) {
         result->data[i] = mat->data[i]*-1;
     }
