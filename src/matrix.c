@@ -343,7 +343,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
                             }
                             
                             int *summedArray = malloc(32);
-                            _mm_storeu_si128(summedArray, summedVector);
+                            _mm256_storeu_pd(summedArray, summedVector);
                             for (unsigned int i = 0; i < 4; i++) {
                                 result->data[y * result->cols + x] += summedArray[i];
                             }
