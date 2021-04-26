@@ -274,8 +274,6 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
 
     fill_matrix(result, 0);
     
-
-    #pragma omp parallel for
     for (mat2col = 0; mat2col < mat2t->rows; mat2col++) {
         for (mat1row = 0; mat1row < mat1->rows; mat1row++) {
             __m256d summedVector = _mm256_setzero_pd();
