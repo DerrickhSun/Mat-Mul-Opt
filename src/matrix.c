@@ -342,7 +342,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
                                 summedVector = tempVector;
                             }
                             
-                            int *summedArray = malloc(32);
+                            double *summedArray = malloc(32);
                             _mm256_storeu_pd(summedArray, summedVector);
                             for (unsigned int i = 0; i < 4; i++) {
                                 result->data[y * result->cols + x] += summedArray[i];
