@@ -261,26 +261,24 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     
     matrix *mat2t;
     allocate_matrix(&mat2t, mat2->cols, mat2->rows);
-    for (int i = 0; i < mat2t->rows; i++) {
-        for (int j = 0; j < mat2t->cols; j++) {
-            set(mat2t, i, j, get(mat2, j, i));
-        }
-    }
-    fill_matrix(result, 0);
-    /*double *mat2t = calloc(mat2->rows * mat2->cols, sizeof(double));
     for (int startx = 0; startx < mat2->cols; startx += 16) {
         for (int starty = 0; starty < mat2->rows; starty += 16) {
+            #pragma omp parallel for
             for (int x = startx; x < startx + 16; x++) {
                 for (int y = starty; y < starty + 16; y++) {
-                    if (y < mat2->rows && x < mat2->cols) mat2t[y + x * mat2->rows] = mat2->data[x + y * mat2->cols];
+                    if (y < mat2->rows && x < mat2->cols) mat2t->data[x * mat2t->cols + y] = mat2->data[y*mat2->cols + x];
                 }
             }
         }
-    }*/
+    }
+
+    fill_matrix(result, 0);
+    
+
+    #pragma omp parallel for
     for (mat2col = 0; mat2col < mat2t->rows; mat2col++) {
         for (mat1row = 0; mat1row < mat1->rows; mat1row++) {
             __m256d summedVector = _mm256_setzero_pd();
-            #pragma omp parallel for
             for(unsigned int i = 0; i < mat2->rows/16 * 16; i += 16) {
                 __m256d vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i]));
 			    __m256d vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i]));
@@ -315,14 +313,8 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
             for (int i = mat2->rows/16 * 16; i < mat2->rows; i++) {
                 result->data[mat1row * result->cols + mat2col] += mat1->data[mat1row * mat1->cols + i]*mat2t->data[mat2col * mat2t->cols + i];
             }
-            //for (i = 0; i < mat2->rows; i++)
-            //    result->data[mat1row * result->cols + mat2col] = result->data[mat1row * result->cols + mat2col] + mat1->data[mat1row * mat1->cols + i]*mat2->data[i * mat2->cols + mat2col];
         }
     }
-    /*#pragma omp parallel for
-    for (int index = 0; index < mat1->rows * mat1->cols * mat2->cols; index++) {
-        result->data[((index / mat2->cols) / mat1->cols) * result->cols + (index % mat2->cols)] += mat1->data[index / mat2->cols] * mat2->data[((index / mat2->cols) % mat1->cols) * mat2->cols + (index % mat2->cols)];
-    }*/
     return 0;
 }
 
