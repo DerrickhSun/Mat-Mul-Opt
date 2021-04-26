@@ -59,11 +59,11 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
         PyErr_SetString(PyExc_RuntimeError, "Invalid matrix dimensions");
         return -1;
     }
-    *mat = malloc(sizeof(matrix));
-        if (!(*mat)) {
-            PyErr_SetString(PyExc_RuntimeError, "Matrix structure allocation failed");
-            return -1;
-        }
+    *mat = calloc((rows * cols) + 4, sizeof(double));
+    if (!(*mat)) {
+        PyErr_SetString(PyExc_RuntimeError, "Matrix structure allocation failed");
+        return -1;
+    }
 
     const int NUM_THREADS = 4;
     omp_set_num_threads(NUM_THREADS);
@@ -78,17 +78,12 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
                 (*mat)->cols = cols;
                 break;
             case 2:
-                (*mat)->data = calloc(rows * cols, sizeof(double));
+                (*mat)->data = &(*mat)->placeholder;
                 break;
             default:
                 (*mat)->ref_cnt = 1;
                 (*mat)->parent = NULL;
         }
-    }
-    if (!((*mat)->data)) {
-        PyErr_SetString(PyExc_RuntimeError, "Data allocation failed");
-        free(mat);
-        return -1;
     }
     return 0;
 }
@@ -138,9 +133,7 @@ void deallocate_matrix(matrix *mat) {
         mat->ref_cnt -= 1;
         if (mat->ref_cnt <= 0) {
             //has no children
-            if(!mat->parent) {
-                free(mat->data);
-            } else {
+            if(mat->parent) {
                 mat->parent->ref_cnt -= 1;
                 if (mat->parent->ref_cnt <= 0) {
                     //if parent is dead and has no children, deallocate them
@@ -308,15 +301,11 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
 
         int lowerx = (id) * mat1->rows/8;
         int upperx = (id + 1) * mat1->rows/8;
-        //int lowerx = (id % 8) * mat2t->rows/8;
-        //int upperx = ((id % 8) + 1) * mat2t->rows/8;
-        //int lowery = (id / 4) * mat1->rows/2;
-        //int uppery = ((id / 4) + 1) * mat1->rows/2;
-        for (int part = 0; part < mat1->cols; part +=32) {
+        for (int part = 0; part < mat1->cols; part +=160) {
             for (int mat1row = lowerx; mat1row < upperx; mat1row++) {
                 for (int mat2col = 0; mat2col < mat2t->rows; mat2col++) {
                     __m256d summedVector = _mm256_setzero_pd();
-                    for (unsigned int i = part; i < part + 32; i+=16) {
+                    for (unsigned int i = part; i < part + 160; i+=16) {
                         if (i + 16 < mat1->cols) {
                             __m256d vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i]));
                             __m256d vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat2t->cols + i]));
@@ -338,9 +327,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
                             for (int j = 0; j < mat1->cols - i; j++) {
                                 result->data[mat1row * result->cols + mat2col] += mat1->data[mat1row * mat1->cols + i + j]*mat2t->data[mat2col * mat2t->cols + i + j];
                             }
-                            
                         }
-                        
                     }
                     double *summedArray = malloc(32);
                     _mm256_storeu_pd(summedArray, summedVector);

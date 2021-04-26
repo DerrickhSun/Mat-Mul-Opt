@@ -6,6 +6,7 @@ typedef struct matrix {
     double* data; // pointer to rows * columns doubles
     int ref_cnt; // How many slices/matrices are referring to this matrix's data
     struct matrix *parent; // NULL if matrix is not a slice, else the parent matrix of the slice
+    double placeholder;
 } matrix;
 
 double rand_double(double low, double high);
