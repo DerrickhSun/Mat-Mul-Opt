@@ -273,7 +273,6 @@ int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  */
 int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     /* TODO: YOUR CODE HERE */
-    
     if (mat1->cols != mat2->rows || result->rows != mat1->rows || result -> cols != mat2->cols)
         return -1;
     
@@ -363,6 +362,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
             }
         }
     }
+    deallocate_matrix(mat2t);
     return 0;
 }
 
