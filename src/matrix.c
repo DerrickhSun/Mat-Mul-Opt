@@ -60,20 +60,36 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
         return -1;
     }
     *mat = malloc(sizeof(matrix));
-    if (!(*mat)) {
-        PyErr_SetString(PyExc_RuntimeError, "Matrix structure allocation failed");
-        return -1;
+        if (!(*mat)) {
+            PyErr_SetString(PyExc_RuntimeError, "Matrix structure allocation failed");
+            return -1;
+        }
+
+    const int NUM_THREADS = 4;
+    omp_set_num_threads(NUM_THREADS);
+    #pragma omp parallel
+    {
+        int id = omp_get_thread_num();
+        switch(id) {
+            case 0:
+                (*mat)->rows = rows;
+                break;
+            case 1:
+                (*mat)->cols = cols;
+                break;
+            case 2:
+                (*mat)->data = calloc(rows * cols, sizeof(double));
+                break;
+            default:
+                (*mat)->ref_cnt = 1;
+                (*mat)->parent = NULL;
+        }
     }
-    (*mat)->rows = rows;
-    (*mat)->cols = cols;
-    (*mat)->data = calloc(rows * cols, sizeof(double));
     if (!((*mat)->data)) {
         PyErr_SetString(PyExc_RuntimeError, "Data allocation failed");
         free(mat);
         return -1;
     }
-    (*mat)->ref_cnt = 1;
-    (*mat)->parent = NULL;
     return 0;
 }
 
@@ -97,6 +113,7 @@ int allocate_matrix_ref(matrix **mat, matrix *from, int offset, int rows, int co
         PyErr_SetString(PyExc_RuntimeError, "Matrix structure allocation failed");
         return -1;
     }
+
     (*mat)->rows = rows;
     (*mat)->cols = cols;
     (*mat)->data = from -> data + offset;
@@ -165,6 +182,7 @@ void fill_matrix(matrix *mat, double val) {
         mat->data[i+2] = val;
         mat->data[i+3] = val;
     }
+    #pragma omp parallel for
     for (int i = mat->rows * mat->cols / 4 * 4; i < mat->rows * mat->cols; i+=1) {
         mat->data[i] = val;
     }
@@ -239,7 +257,7 @@ int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
 			tempVector = _mm256_sub_pd(vector1, vector2);
 			_mm256_storeu_pd(&(result->data[i+12]), tempVector);
 		}
-
+        #pragma omp parallel for
         for (int i = (mat1->rows * mat1->cols)/16 * 16; i < mat1->rows * mat1->cols; i++) {
             result->data[i] = mat1->data[i] - mat2->data[i];
         }
@@ -255,62 +273,234 @@ int sub_matrix(matrix *result, matrix *mat1, matrix *mat2) {
  */
 int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     /* TODO: YOUR CODE HERE */
-    int mat1row, mat2col;
+    
     if (mat1->cols != mat2->rows || result->rows != mat1->rows || result -> cols != mat2->cols)
         return -1;
     
     matrix *mat2t;
     allocate_matrix(&mat2t, mat2->cols, mat2->rows);
-    for (int startx = 0; startx < mat2->cols; startx += 16) {
-        for (int starty = 0; starty < mat2->rows; starty += 16) {
-            #pragma omp parallel for
-            for (int x = startx; x < startx + 16; x++) {
-                for (int y = starty; y < starty + 16; y++) {
-                    if (y < mat2->rows && x < mat2->cols) mat2t->data[x * mat2t->cols + y] = mat2->data[y*mat2->cols + x];
+
+    const int NUM_THREADS = 4;
+    omp_set_num_threads(NUM_THREADS);
+    #pragma omp parallel
+    {
+        int id = omp_get_thread_num();
+        switch(id){
+            case 0:
+                for (int startx = 0; startx < mat2->cols/2; startx += 16) {
+                    for (int starty = 0; starty < mat2->rows/2; starty += 16) {
+                        for (int x = startx; x < startx + 16; x++) {
+                            for (int y = starty; y < starty + 16; y++) {
+                                if (y < mat2->rows && x < mat2->cols) mat2t->data[x * mat2t->cols + y] = mat2->data[y*mat2->cols + x];
+                            }
+                        }
+                    }
                 }
-            }
+                break;
+            case 1:
+                for (int startx = 0; startx < mat2->cols/2; startx += 16) {
+                    for (int starty = mat2->rows/2; starty < mat2->rows; starty += 16) {
+                        for (int x = startx; x < startx + 16; x++) {
+                            for (int y = starty; y < starty + 16; y++) {
+                                if (y < mat2->rows && x < mat2->cols) mat2t->data[x * mat2t->cols + y] = mat2->data[y*mat2->cols + x];
+                            }
+                        }
+                    }
+                }
+                break;
+            case 2:
+                for (int startx = mat2->cols/2; startx < mat2->cols; startx += 16) {
+                    for (int starty = 0; starty < mat2->rows/2; starty += 16) {
+                        for (int x = startx; x < startx + 16; x++) {
+                            for (int y = starty; y < starty + 16; y++) {
+                                if (y < mat2->rows && x < mat2->cols) mat2t->data[x * mat2t->cols + y] = mat2->data[y*mat2->cols + x];
+                            }
+                        }
+                    }
+                }
+                break;
+            default:
+                for (int startx = mat2->cols/2; startx < mat2->cols; startx += 16) {
+                    for (int starty = mat2->rows/2; starty < mat2->rows; starty += 16) {
+                        for (int x = startx; x < startx + 16; x++) {
+                            for (int y = starty; y < starty + 16; y++) {
+                                if (y < mat2->rows && x < mat2->cols) mat2t->data[x * mat2t->cols + y] = mat2->data[y*mat2->cols + x];
+                            }
+                        }
+                    }
+                }
         }
     }
-
     fill_matrix(result, 0);
-    
-    for (mat2col = 0; mat2col < mat2t->rows; mat2col++) {
-        for (mat1row = 0; mat1row < mat1->rows; mat1row++) {
-            __m256d summedVector = _mm256_setzero_pd();
-            for(unsigned int i = 0; i < mat2->rows/16 * 16; i += 16) {
-                __m256d vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i]));
-			    __m256d vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i]));
-			    __m256d filteredVals = _mm256_mul_pd(vector2, vectorVals);
 
-			    __m256d tempVector = _mm256_add_pd(summedVector, filteredVals);
-			    summedVector = tempVector;
+    #pragma omp parallel
+    {
+        int id = omp_get_thread_num();
+        int mat1row, mat2col;
+        switch(id) {
+            case 0:
+                for (mat2col = 0; mat2col < mat2t->rows/2; mat2col++) {
+                    for (mat1row = 0; mat1row < mat1->rows/2; mat1row++) {
+                        __m256d summedVector = _mm256_setzero_pd();
+                        for(unsigned int i = 0; i < mat2->rows/16 * 16; i += 16) {
+                            __m256d vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i]));
+                            __m256d vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i]));
+                            __m256d filteredVals = _mm256_mul_pd(vector2, vectorVals);
 
-                vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 4]));
-			    vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 4]));
-			    filteredVals = _mm256_mul_pd(vector2, vectorVals);
-			    tempVector = _mm256_add_pd(summedVector, filteredVals);
-			    summedVector = tempVector;
+                            __m256d tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
 
-                vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 8]));
-			    vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 8]));
-			    filteredVals = _mm256_mul_pd(vector2, vectorVals);
-			    tempVector = _mm256_add_pd(summedVector, filteredVals);
-			    summedVector = tempVector;
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 4]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 4]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
 
-                vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 12]));
-			    vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 12]));
-			    filteredVals = _mm256_mul_pd(vector2, vectorVals);
-			    tempVector = _mm256_add_pd(summedVector, filteredVals);
-			    summedVector = tempVector;
-		    }
-            
-		    for (unsigned int i = 0; i < 4; i++) {
-		    	result->data[mat1row * result->cols + mat2col] += summedVector[i];
-		    }
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 8]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 8]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
 
-            for (int i = mat2->rows/16 * 16; i < mat2->rows; i++) {
-                result->data[mat1row * result->cols + mat2col] += mat1->data[mat1row * mat1->cols + i]*mat2t->data[mat2col * mat2t->cols + i];
-            }
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 12]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 12]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+                        }
+                        
+                        for (unsigned int i = 0; i < 4; i++) {
+                            result->data[mat1row * result->cols + mat2col] += summedVector[i];
+                        }
+
+                        for (int i = mat2->rows/16 * 16; i < mat2->rows; i++) {
+                            result->data[mat1row * result->cols + mat2col] += mat1->data[mat1row * mat1->cols + i]*mat2t->data[mat2col * mat2t->cols + i];
+                        }
+                    }
+                }
+                break;
+            case 1:
+                for (mat2col = mat2t->rows/2; mat2col < mat2t->rows; mat2col++) {
+                    for (mat1row = 0; mat1row < mat1->rows/2; mat1row++) {
+                        __m256d summedVector = _mm256_setzero_pd();
+                        for(unsigned int i = 0; i < mat2->rows/16 * 16; i += 16) {
+                            __m256d vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i]));
+                            __m256d vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i]));
+                            __m256d filteredVals = _mm256_mul_pd(vector2, vectorVals);
+
+                            __m256d tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 4]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 4]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 8]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 8]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 12]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 12]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+                        }
+                        
+                        for (unsigned int i = 0; i < 4; i++) {
+                            result->data[mat1row * result->cols + mat2col] += summedVector[i];
+                        }
+
+                        for (int i = mat2->rows/16 * 16; i < mat2->rows; i++) {
+                            result->data[mat1row * result->cols + mat2col] += mat1->data[mat1row * mat1->cols + i]*mat2t->data[mat2col * mat2t->cols + i];
+                        }
+                    }
+                }
+                break;
+            case 2:
+                for (mat2col = mat2t->rows/2; mat2col < mat2t->rows; mat2col++) {
+                    for (mat1row = mat1->rows/2; mat1row < mat1->rows; mat1row++) {
+                        __m256d summedVector = _mm256_setzero_pd();
+                        for(unsigned int i = 0; i < mat2->rows/16 * 16; i += 16) {
+                            __m256d vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i]));
+                            __m256d vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i]));
+                            __m256d filteredVals = _mm256_mul_pd(vector2, vectorVals);
+
+                            __m256d tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 4]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 4]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 8]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 8]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 12]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 12]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+                        }
+                        
+                        for (unsigned int i = 0; i < 4; i++) {
+                            result->data[mat1row * result->cols + mat2col] += summedVector[i];
+                        }
+
+                        for (int i = mat2->rows/16 * 16; i < mat2->rows; i++) {
+                            result->data[mat1row * result->cols + mat2col] += mat1->data[mat1row * mat1->cols + i]*mat2t->data[mat2col * mat2t->cols + i];
+                        }
+                    }
+                }
+                break;
+            default:
+                for (mat2col = 0; mat2col < mat2t->rows/2; mat2col++) {
+                    for (mat1row = mat1->rows/2; mat1row < mat1->rows; mat1row++) {
+                        __m256d summedVector = _mm256_setzero_pd();
+                        for(unsigned int i = 0; i < mat2->rows/16 * 16; i += 16) {
+                            __m256d vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i]));
+                            __m256d vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i]));
+                            __m256d filteredVals = _mm256_mul_pd(vector2, vectorVals);
+
+                            __m256d tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 4]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 4]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 8]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 8]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+
+                            vectorVals = _mm256_loadu_pd(&(mat1->data[mat1row * mat1->cols + i + 12]));
+                            vector2 = _mm256_loadu_pd(&(mat2t->data[mat2col * mat1->cols + i + 12]));
+                            filteredVals = _mm256_mul_pd(vector2, vectorVals);
+                            tempVector = _mm256_add_pd(summedVector, filteredVals);
+                            summedVector = tempVector;
+                        }
+                        
+                        for (unsigned int i = 0; i < 4; i++) {
+                            result->data[mat1row * result->cols + mat2col] += summedVector[i];
+                        }
+
+                        for (int i = mat2->rows/16 * 16; i < mat2->rows; i++) {
+                            result->data[mat1row * result->cols + mat2col] += mat1->data[mat1row * mat1->cols + i]*mat2t->data[mat2col * mat2t->cols + i];
+                        }
+                    }
+                }
         }
     }
     return 0;

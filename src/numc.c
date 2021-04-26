@@ -409,7 +409,7 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
 
     matrix *new_mat;
     int ref_failed = allocate_matrix(&new_mat, self->mat->rows, argu->mat->cols);
-    if (ref_failed != 0) {
+    if (ref_failed) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to allocate slice");
         return NULL;
     }
