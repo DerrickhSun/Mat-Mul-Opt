@@ -279,18 +279,21 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         int mat2col = index % mat2cols;
         int mat1rowindex = mat1row * termsperentry;
         int mat2colindex = mat2col * termsperentry;
+        double *matrix1addresshelper = matrix1 + mat1rowindex;
+        double *matrix2addresshelper = mat2t + mat2colindex;
         __m256d summedVector = _mm256_setzero_pd();
         int i = 0;
-        for (; i < termsperentry/16 * 16; i+=16) {
-            double *matrix1address = matrix1 + mat1rowindex + i;
-            double *matrix2address = mat2t + mat2colindex + i;
+        for (; i < termsperentry/20 * 20; i+=20) {
+            double *matrix1address = matrix1addresshelper + i;
+            double *matrix2address = matrix2addresshelper + i;
             summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1address), _mm256_loadu_pd(matrix2address), summedVector);
             summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1address + 4), _mm256_loadu_pd(matrix2address + 4), summedVector);
             summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1address + 8), _mm256_loadu_pd(matrix2address + 8), summedVector);
             summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1address + 12), _mm256_loadu_pd(matrix2address + 12), summedVector);
+            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1address + 16), _mm256_loadu_pd(matrix2address + 16), summedVector);
         }
         for (; i < termsperentry/4 * 4; i+=4) {
-            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
+            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1addresshelper + i), _mm256_loadu_pd(matrix2addresshelper + i), summedVector);
         }
 
         resultmatrix[index] = summedVector[0] + summedVector[1] + summedVector[2] + summedVector[3];
