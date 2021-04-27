@@ -56,7 +56,7 @@ void rand_matrix(matrix *result, unsigned int seed, double low, double high) {
 int allocate_matrix(matrix **mat, int rows, int cols) {
     /* TODO: YOUR CODE HERE */
     if (rows < 1 || cols < 1) {
-        PyErr_SetString(PyExc_RuntimeError, "Invalid matrix dimensions");
+        PyErr_SetString(PyExc_ValueError, "Invalid matrix dimensions");
         return -1;
     }
     *mat = calloc((rows * cols) + 4, sizeof(double));
@@ -84,7 +84,7 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
 int allocate_matrix_ref(matrix **mat, matrix *from, int offset, int rows, int cols) {
     /* TODO: YOUR CODE HERE */
     if (rows < 1 || cols < 1) {
-        PyErr_SetString(PyExc_RuntimeError, "Invalid matrix dimensions");
+        PyErr_SetString(PyExc_ValueError, "Invalid matrix dimensions");
         return -1;
     }
     *mat = malloc(sizeof(matrix));
@@ -261,10 +261,10 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
 
     //transpose mat2 for faster multiplication
     #pragma omp parallel for
-    for (int startx = 0; startx < mat2->cols; startx += 64) {
-        for (int starty = 0; starty < mat2->rows; starty += 64) {
-            for (int x = startx; x < startx + 64 && x < mat2->cols; x++) {
-                for (int y = starty; y < starty + 64 && y < mat2->rows; y++) {
+    for (int startx = 0; startx < mat2->cols; startx += 32) {
+        for (int starty = 0; starty < mat2->rows; starty += 32) {
+            for (int x = startx; x < startx + 32 && x < mat2->cols; x++) {
+                for (int y = starty; y < starty + 32 && y < mat2->rows; y++) {
                     mat2t[x * termsperentry + y] = matrix2[y * mat2cols + x];
                 }
             }
@@ -297,7 +297,6 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
                 } else {
                     resultmatrix[index] += summedVector[0] + summedVector[1] + summedVector[2] +summedVector[3];
                 }
-                
 
                 for (int i = upperbound/4 * 4; i < upperbound; i++) {
                     resultmatrix[index] += matrix1[mat1rowindex + i]*mat2t[mat2colindex + i];
