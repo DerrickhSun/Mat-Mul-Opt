@@ -37,4 +37,6 @@ Here's what I did in project 4:
 -I had previously considered it but dismissed it as only a small increase, but since I was desperate for more ways to speed up, I implemented SIMD for the tail case... so I had a tail case and a tail case for the tail case
 -My multiplication had previously also made use of fill_matrix to clean out the result matrix, as it otherwise could mess up if it was given a matrix that already had terms in it; I was able to find a way to remove this, which sped things up
 -Surfing the web led me to the realization that the stack is faster than the heap, so then I proceeded to try to convert as many things as possible into variables, both to reduce the number of calculations the code had to do and to avoid memory accesses to the heap
+-While I was replacing things with variables, I also made other small optimizations
 -With the clock ticking down, I implemented the same things I did for multiplication to my other operations and switched to just testing - I was practically out of ideas for further improving mul, and was instead aiming to simply get the points for correctness
+-Made last minute optimizations and tests

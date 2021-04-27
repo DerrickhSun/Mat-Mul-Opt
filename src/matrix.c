@@ -64,27 +64,11 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
         PyErr_SetString(PyExc_RuntimeError, "Matrix structure allocation failed");
         return -1;
     }
-
-    const int NUM_THREADS = 4;
-    omp_set_num_threads(NUM_THREADS);
-    #pragma omp parallel
-    {
-        int id = omp_get_thread_num();
-        switch(id) {
-            case 0:
-                (*mat)->rows = rows;
-                break;
-            case 1:
-                (*mat)->cols = cols;
-                break;
-            case 2:
-                (*mat)->data = &(*mat)->placeholder;
-                break;
-            default:
-                (*mat)->ref_cnt = 1;
-                (*mat)->parent = NULL;
-        }
-    }
+    (*mat)->rows = rows;
+    (*mat)->cols = cols;
+    (*mat)->data = &(*mat)->placeholder;
+    (*mat)->ref_cnt = 1;
+    (*mat)->parent = NULL;
     return 0;
 }
 
@@ -168,16 +152,24 @@ void set(matrix *mat, int row, int col, double val) {
  */
 void fill_matrix(matrix *mat, double val) {
     /* TODO: YOUR CODE HERE */
+    __m256d set = _mm256_set1_pd(val);
+    double *matrix = mat->data;
+    int size = mat->cols * mat->rows;
+
     #pragma omp parallel for
-    for (int i = 0; i < mat->rows * mat->cols / 4 * 4; i+=4) {
-        mat->data[i] = val;
-        mat->data[i+1] = val;
-        mat->data[i+2] = val;
-        mat->data[i+3] = val;
+    for (int i = 0; i < size / 16 * 16; i+=16) {
+        _mm256_storeu_pd(matrix + i, set);
+		_mm256_storeu_pd(matrix + i + 4, set);
+		_mm256_storeu_pd(matrix + i + 8, set);
+		_mm256_storeu_pd(matrix + i + 12, set);
     }
     #pragma omp parallel for
-    for (int i = mat->rows * mat->cols / 4 * 4; i < mat->rows * mat->cols; i+=1) {
-        mat->data[i] = val;
+    for (int i = size / 16 * 16; i < size / 4 * 4; i+=4) {
+        _mm256_storeu_pd(matrix + i, set);
+    }
+    #pragma omp parallel for
+    for (int i = size / 4 * 4; i < size; i++) {
+        matrix[i] = val;
     }
 }
 
@@ -292,10 +284,10 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
             summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
             summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 4), _mm256_loadu_pd(mat2t + mat2colindex + i + 4), summedVector);
             summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 8), _mm256_loadu_pd(mat2t + mat2colindex + i + 8), summedVector);
-            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 12), _mm256_loadu_pd(&(mat2t[mat2colindex + i + 12])), summedVector);
+            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 12), _mm256_loadu_pd(mat2t + mat2colindex + i + 12), summedVector);
         }
         for (int i = termsperentry/16 * 16; i < termsperentry/4 * 4; i+=4) {
-            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(&(matrix1[mat1rowindex + i])), _mm256_loadu_pd(&(mat2t[mat2colindex + i])), summedVector);
+            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
         }
 
         resultmatrix[index] = summedVector[0] + summedVector[1] + summedVector[2] +summedVector[3];
