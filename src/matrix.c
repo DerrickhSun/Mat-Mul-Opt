@@ -274,28 +274,60 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     
     //performs multiplication, column by column
     #pragma omp parallel for
-    for (int index = 0; index < mat1rows * mat2cols; index++) {
-        int mat1row = index / mat2cols;
-        int mat2col = index % mat2cols;
-        int mat1rowindex = mat1row * termsperentry;
-        int mat2colindex = mat2col * termsperentry;
-        __m256d summedVector = _mm256_setzero_pd();
-        for (int i = 0; i < termsperentry/16 * 16; i+=16) {
-            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
-            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 4), _mm256_loadu_pd(mat2t + mat2colindex + i + 4), summedVector);
-            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 8), _mm256_loadu_pd(mat2t + mat2colindex + i + 8), summedVector);
-            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 12), _mm256_loadu_pd(mat2t + mat2colindex + i + 12), summedVector);
-        }
-        for (int i = termsperentry/16 * 16; i < termsperentry/4 * 4; i+=4) {
-            summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
-        }
+    for (int mat1row = 0; mat1row < mat1rows; mat1row++) {
+        for (int blocker = 0; blocker < termsperentry; blocker += 128){
+            for (int mat2col = 0; mat2col < mat2cols; mat2col++){
+                int index = mat1row * mat2cols + mat2col;
+                int mat1rowindex = mat1row * termsperentry;
+                int mat2colindex = mat2col * termsperentry;
+                int upperbound = blocker + 128 < termsperentry ? blocker + 128 : termsperentry;
+                __m256d summedVector = _mm256_setzero_pd();
+                for (int i = blocker; i < upperbound/16 * 16; i+=16) {
+                    summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
+                    summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 4), _mm256_loadu_pd(mat2t + mat2colindex + i + 4), summedVector);
+                    summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 8), _mm256_loadu_pd(mat2t + mat2colindex + i + 8), summedVector);
+                    summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 12), _mm256_loadu_pd(mat2t + mat2colindex + i + 12), summedVector);
+                }
+                for (int i = upperbound/16 * 16; i < upperbound/4 * 4; i+=4) {
+                    summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
+                }
 
-        resultmatrix[index] = summedVector[0] + summedVector[1] + summedVector[2] +summedVector[3];
+                if (blocker == 0) {
+                    resultmatrix[index] = summedVector[0] + summedVector[1] + summedVector[2] +summedVector[3];
+                } else {
+                    resultmatrix[index] += summedVector[0] + summedVector[1] + summedVector[2] +summedVector[3];
+                }
+                
 
-        for (int i = termsperentry/4 * 4; i < termsperentry; i++) {
-            resultmatrix[index] += matrix1[mat1rowindex + i]*mat2t[mat2colindex + i];
+                for (int i = upperbound/4 * 4; i < upperbound; i++) {
+                    resultmatrix[index] += matrix1[mat1rowindex + i]*mat2t[mat2colindex + i];
+                }
+            }
         }
     }
+    /*for (int mat1row = 0; mat1row < mat1rows; mat1row++) {
+        for (int mat2col = 0; mat2col < mat2cols; mat2col++){
+            int index = mat1row * mat2cols + mat2col;
+            int mat1rowindex = mat1row * termsperentry;
+            int mat2colindex = mat2col * termsperentry;
+            __m256d summedVector = _mm256_setzero_pd();
+            for (int i = 0; i < termsperentry/16 * 16; i+=16) {
+                summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
+                summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 4), _mm256_loadu_pd(mat2t + mat2colindex + i + 4), summedVector);
+                summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 8), _mm256_loadu_pd(mat2t + mat2colindex + i + 8), summedVector);
+                summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 12), _mm256_loadu_pd(mat2t + mat2colindex + i + 12), summedVector);
+            }
+            for (int i = termsperentry/16 * 16; i < termsperentry/4 * 4; i+=4) {
+                summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
+            }
+
+            resultmatrix[index] = summedVector[0] + summedVector[1] + summedVector[2] +summedVector[3];
+
+            for (int i = termsperentry/4 * 4; i < termsperentry; i++) {
+                resultmatrix[index] += matrix1[mat1rowindex + i]*mat2t[mat2colindex + i];
+            }
+        }
+    }*/
     free(mat2t);
     return 0;
 }

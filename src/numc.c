@@ -403,7 +403,7 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
     
     #pragma omp parallel
     {
-        int id = omp_get_thread_num();
+        int id = __builtin_omp_get_thread_num();
         if(id == 0){
             if(self->mat->cols != argu->mat->rows) {
                 PyErr_SetString(PyExc_ValueError, "Multiplying matrices of invalid shape");
@@ -446,7 +446,7 @@ static PyObject *Matrix61c_neg(Matrix61c* self) {
     matrix *new_mat;
     #pragma omp parallel
     {
-        int id = omp_get_thread_num();
+        int id = __builtin_omp_get_thread_num();
         if(id == 0){
             if (self->mat->cols <= 0 || self->mat->rows <= 0) {
                 PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
