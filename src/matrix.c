@@ -259,7 +259,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
     int termsperentry = mat2->rows;
     int mat1rows = mat1->rows;
 
-    //transpose mat2 for faster multiplication
+    //transpose mat2 for faster multiplication, practically copied from my lab07
     #pragma omp parallel for
     for (int startx = 0; startx < mat2->cols; startx += 32) {
         for (int starty = 0; starty < mat2->rows; starty += 32) {
@@ -270,17 +270,18 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
             }
         }
     }
-
     
     //performs multiplication, column by column
     #pragma omp parallel for
     for (int mat1row = 0; mat1row < mat1rows; mat1row++) {
-        for (int blocker = 0; blocker < termsperentry; blocker += 128){
-            for (int mat2col = 0; mat2col < mat2cols; mat2col++){
+        //sort of for blocking - it doesn't actually increase the speed much...
+        for (int blocker = 0; blocker < termsperentry; blocker += 128) {
+            int upperbound = blocker + 128 < termsperentry ? blocker + 128 : termsperentry;
+            for (int mat2col = 0; mat2col < mat2cols; mat2col++) {
+                //the three index functions are just to help identify the indeces in the respective matrix that will be worked with
                 int index = mat1row * mat2cols + mat2col;
                 int mat1rowindex = mat1row * termsperentry;
                 int mat2colindex = mat2col * termsperentry;
-                int upperbound = blocker + 128 < termsperentry ? blocker + 128 : termsperentry;
                 __m256d summedVector = _mm256_setzero_pd();
                 for (int i = blocker; i < upperbound/16 * 16; i+=16) {
                     summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
@@ -289,6 +290,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
                     summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i + 12), _mm256_loadu_pd(mat2t + mat2colindex + i + 12), summedVector);
                 }
                 for (int i = upperbound/16 * 16; i < upperbound/4 * 4; i+=4) {
+                    //tail case
                     summedVector = _mm256_fmadd_pd(_mm256_loadu_pd(matrix1 + mat1rowindex + i), _mm256_loadu_pd(mat2t + mat2colindex + i), summedVector);
                 }
 
@@ -299,6 +301,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
                 }
 
                 for (int i = upperbound/4 * 4; i < upperbound; i++) {
+                    //tail case's tail case
                     resultmatrix[index] += matrix1[mat1rowindex + i]*mat2t[mat2colindex + i];
                 }
             }
@@ -361,6 +364,7 @@ int pow_matrix(matrix *result, matrix *mat, int pow) {
         return a;
     }
     else {
+        //for when pow is odd
         matrix *temp;
         allocate_matrix(&temp, size, size);
         int a = pow_matrix(temp, mat, pow - 1);

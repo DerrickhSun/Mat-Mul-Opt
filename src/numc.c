@@ -396,24 +396,28 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
         PyErr_SetString(PyExc_TypeError, "Multiplying non-matrices");
         return NULL;
     }
-    int flag = 0;
     Matrix61c* argu = (Matrix61c *)args;
+
+    if (self->mat->cols <= 0 || self->mat->rows <= 0 || argu->mat->rows <= 0) {
+        PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
+        return NULL;
+    }
+    if(self->mat->cols != argu->mat->rows) {
+        PyErr_SetString(PyExc_ValueError, "Multiplying matrices of invalid shape");
+        return NULL;
+    }
+    int flag = 0;
+    
     matrix *new_mat;
     Matrix61c* temp;
     
     #pragma omp parallel
     {
         int id = __builtin_omp_get_thread_num();
-        if(id == 0){
-            if(self->mat->cols != argu->mat->rows) {
-                PyErr_SetString(PyExc_ValueError, "Multiplying matrices of invalid shape");
-                flag = 1;
-            }
-        } else if (id == 1) {
+        if(id == 0) {
             temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
-            
             temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(argu->mat->cols));
-        } else if (id ==2) {
+        } else if (id == 1) {
             int ref_failed = allocate_matrix(&new_mat, self->mat->rows, argu->mat->cols);
             if (ref_failed) {
                 PyErr_SetString(PyExc_RuntimeError, "Failed to allocate slice");
@@ -426,7 +430,11 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
     }
     temp->mat = new_mat;
     
-    mul_matrix(temp->mat, self->mat, argu->mat);
+    
+    int functionfailed = mul_matrix(temp->mat, self->mat, argu->mat);
+    if (functionfailed) {
+        return NULL;
+    }
 
     return (PyObject*)temp;
 }
@@ -440,6 +448,10 @@ static PyObject *Matrix61c_neg(Matrix61c* self) {
         PyErr_SetString(PyExc_TypeError, "Negating non-matrices");
         return NULL;
     }
+    if (self->mat->cols <= 0 || self->mat->rows <= 0) {
+        PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
+        return NULL;
+    }
 
     int flag = 0;
     Matrix61c* temp;
@@ -448,19 +460,14 @@ static PyObject *Matrix61c_neg(Matrix61c* self) {
     {
         int id = __builtin_omp_get_thread_num();
         if(id == 0){
-            if (self->mat->cols <= 0 || self->mat->rows <= 0) {
-                PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
-                flag = 1;
-            }
-        } else if (id == 1) {
-            temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
-            temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
-        } else if (id ==2) {
             int ref_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
             if (ref_failed != 0) {
                 PyErr_SetString(PyExc_RuntimeError, "Failed to allocate matrix");
                 flag = 1;
             }
+        } else if (id == 1) {
+            temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+            temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
         }
     }
     if (flag) {
@@ -487,21 +494,32 @@ static PyObject *Matrix61c_abs(Matrix61c *self) {
         PyErr_SetString(PyExc_TypeError, "Taking the abs of non-matrices");
         return NULL;
     }
-
-    if (self->mat->cols <= 0 || self->mat->rows <= 0) {
-        PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
-        return NULL;
-    }
-
-    Matrix61c* temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+    int flag = 0;
+    Matrix61c* temp;
     matrix *new_mat;
-    int ref_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
-    if (ref_failed != 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate matrix");
+    #pragma omp parallel
+    {
+        int id = __builtin_omp_get_thread_num();
+        if(id == 0){
+            if (self->mat->cols <= 0 || self->mat->rows <= 0) {
+                PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
+                flag = 1;
+            }
+        } else if (id == 1) {
+            temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+            temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
+        } else if (id ==2) {
+            int ref_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
+            if (ref_failed != 0) {
+                PyErr_SetString(PyExc_RuntimeError, "Failed to allocate matrix");
+                flag = 1;
+            }
+        }
+    }
+    if (flag) {
         return NULL;
     }
     temp->mat = new_mat;
-    temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
     
     //executing abs
     int functionfailed = abs_matrix(temp->mat, self->mat);
@@ -524,27 +542,45 @@ static PyObject *Matrix61c_pow(Matrix61c *self, PyObject *pow, PyObject *optiona
     }
     if (!PyLong_Check(pow)) {
         PyErr_SetString(PyExc_TypeError, "Power must be an int/long");
+        return NULL;
+    }
+    if (self->mat->cols <= 0 || self->mat->rows <= 0 || PyLong_AsLong(pow) < 0) {
+        PyErr_SetString(PyExc_ValueError, "Negative dimensions and/or powers not accepted");
+        return NULL;
     }
     if(self->mat->rows != self->mat->cols) {
         PyErr_SetString(PyExc_ValueError, "Raising non-square matrices to a power");
         return NULL;
-    } else if (self->mat->cols <= 0 || self->mat->rows <= 0 || PyLong_AsLong(pow) < 0) {
-        PyErr_SetString(PyExc_ValueError, "Negative dimensions and/or powers not accepted");
-        return NULL;
     }
 
-    Matrix61c* temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
-
+    int flag = 0;
+    Matrix61c* temp;
     matrix *new_mat;
-    int ref_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
-    if (ref_failed) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to allocate matrix");
+    #pragma omp parallel
+    {
+        int id = __builtin_omp_get_thread_num();
+        if(id == 0){
+            temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
+            temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
+        } else if (id == 1) {
+            int ref_failed = allocate_matrix(&new_mat, self->mat->rows, self->mat->cols);
+            if (ref_failed) {
+                PyErr_SetString(PyExc_RuntimeError, "Failed to allocate matrix");
+                flag = 1;
+            }
+        }
+    }
+    if (flag) {
         return NULL;
     }
+
     temp->mat = new_mat;
-    temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(self->mat->cols));
     
-    pow_matrix(temp->mat, self->mat, PyLong_AsLong(pow));
+    int functionfailed = pow_matrix(temp->mat, self->mat, PyLong_AsLong(pow));
+    if (functionfailed) {
+        PyErr_SetString(PyExc_RuntimeError, "Pow function failed");
+        return NULL;
+    }
     return (PyObject*)temp;
 }
 
