@@ -304,7 +304,7 @@ int mul_matrix(matrix *result, matrix *mat1, matrix *mat2) {
         result->data[index] = summedVector[0] + summedVector[1] + summedVector[2] +summedVector[3];
 
         for (int i = mat1->cols/16 * 16; i < mat1->cols; i++) {
-            result->data[index] += mat1->data[mat1row * mat1->cols + i]*mat2t[mat2col * mat2->rows + i];
+            result->data[index] += mat1->data[mat1rowindex + i]*mat2t[mat2colindex + i];
         }
     }
     free(mat2t);
