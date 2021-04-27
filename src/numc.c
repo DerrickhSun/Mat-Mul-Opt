@@ -400,9 +400,6 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
     if(self->mat->cols != argu->mat->rows) {
         PyErr_SetString(PyExc_ValueError, "Multiplying matrices of invalid shape");
         return NULL;
-    } else if (self->mat->rows <= 0 || argu->mat->rows <= 0 || argu->mat->cols <= 0) {
-        PyErr_SetString(PyExc_ValueError, "Negative dimensions not accepted");
-        return NULL;
     }
 
     Matrix61c* temp = (Matrix61c*) Matrix61c_new(&Matrix61cType, NULL, NULL);
@@ -415,11 +412,8 @@ static PyObject *Matrix61c_multiply(Matrix61c* self, PyObject *args) {
     }
     temp->mat = new_mat;
     temp->shape = PyTuple_Pack(2, PyLong_FromLong(self->mat->rows), PyLong_FromLong(argu->mat->cols));
-    int functionfailed = mul_matrix(temp->mat, self->mat, argu->mat);
-    if (functionfailed) {
-        PyErr_SetString(PyExc_RuntimeError, "Mul function failed");
-        return NULL;
-    }
+    
+    mul_matrix(temp->mat, self->mat, argu->mat);
     return (PyObject*)temp;
 }
 
