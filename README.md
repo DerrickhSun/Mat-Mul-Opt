@@ -31,6 +31,7 @@ Here's what I did in project 4:
 -I tried a different way to perform mul that had to set up SIMD more often but had better blocking, in the hopes that it would be faster
 -The version with worse blocking turned out to operate faster, however, so I began to revert it back
 -Due to time constraints, I didn't implement blocking in the selected method in order to be able to code it faster and do more testing instead
+-This allowed me to write a result-based answer that only iterated over the terms of the result matrix
 -This also let me use #pragma omp parallel for, since the faster, short-cut version of my original code possessed fewer nested loops and didn't cause the issues that plagued me earlier
 -I added SIMD and unrolling to the new multiplication function
 -Funnily enough, this hastily thrown-together version did better than both of its predecessors; however, it was still slow, at only x18 speed up even with SIMD and omp implemented... which was incredibly strange, but not much I could do about it
@@ -40,3 +41,9 @@ Here's what I did in project 4:
 -While I was replacing things with variables, I also made other small optimizations
 -With the clock ticking down, I implemented the same things I did for multiplication to my other operations and switched to just testing - I was practically out of ideas for further improving mul, and was instead aiming to simply get the points for correctness
 -Made last minute optimizations and tests
+-Realized I still had a slip day and continued working
+-Since I had time, I reverted the code back to the input-centric version (with nested for loops) and implemented blocking, though this actually slowed things down slightly
+-I attended office hours, where we were unable to find the problem, though the TA mentioned that the blocking was unnecessary due to my implementation of transpose
+-I removed the blocking, since if it was unnecessary, then it was wasting time
+-After removing blocking, I realized I could revert completely back to the result-centric solution to maximize the benefit from omp
+-I made various minor optimizations - mostly more moving variables around and reducing calculations where I could
