@@ -76,13 +76,11 @@ int allocate_matrix(matrix **mat, int rows, int cols) {
  * Allocates space for a matrix struct pointed to by `mat` with `rows` rows and `cols` columns.
  * Its data should point to the `offset`th entry of `from`'s data (you do not need to allocate memory)
  * for the data field. `parent` should be set to `from` to indicate this matrix is a slice of `from`.
- * You should return -1 if either `rows` or `cols` or both are non-positive or if any
+ * Should return -1 if either `rows` or `cols` or both are non-positive or if any
  * call to allocate memory in this function fails.
- * If you don't set python error messages here upon failure, then remember to set it in numc.c.
  * Return 0 upon success.
  */
 int allocate_matrix_ref(matrix **mat, matrix *from, int offset, int rows, int cols) {
-    /* TODO: YOUR CODE HERE */
     if (rows < 1 || cols < 1) {
         PyErr_SetString(PyExc_ValueError, "Invalid matrix dimensions");
         return -1;
@@ -107,7 +105,7 @@ int allocate_matrix_ref(matrix **mat, matrix *from, int offset, int rows, int co
 }
 
 /*
- * You need to make sure that you only free `mat->data` if `mat` is not a slice and has no existing slices,
+ * Need to make sure that `mat->data` is freed only if `mat` is not a slice and has no existing slices,
  * or if `mat` is the last existing slice of its parent matrix and its parent matrix has no other references
  * (including itself). You cannot assume that mat is not NULL.
  */
